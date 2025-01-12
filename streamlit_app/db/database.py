@@ -39,3 +39,35 @@ class Database:
         except Exception as e:
             logging.error(f"Error al guardar en la base de datos: {e}")
             raise
+
+    def create_user_selection_table(self):
+        """
+        Crea la tabla de selección del usuario si no existe.
+        """
+        create_table_query = f"""
+        CREATE TABLE IF NOT EXISTS user_selections (
+            timestamp DATETIME,
+            open FLOAT,
+            high FLOAT,
+            low FLOAT,
+            close FLOAT,
+            volume FLOAT,
+            Total_Height FLOAT,
+            Volume_SMA FLOAT,
+            Total_Height_SMA FLOAT,
+            High_Volume BOOLEAN,
+            Small_Body BOOLEAN
+        );
+        """
+        with self.engine.connect() as connection:
+            connection.execute(text(create_table_query))
+
+    def save_user_selection(self, df):
+        """
+        Guarda la selección del usuario en la base de datos.
+        """
+        try:
+            df.to_sql('user_selections', self.engine, if_exists='append', index=False)
+        except Exception as e:
+            logging.error(f"Error al guardar la selección del usuario en la base de datos: {e}")
+            raise
