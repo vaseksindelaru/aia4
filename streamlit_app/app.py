@@ -1,8 +1,15 @@
-# filepath: /c:/Users/vaclav/aia4/streamlit_app/app.py
 import streamlit as st
+import pandas as pd
 from agents.detection_agent import DetectionAgent
 from streamlit_app.components.charts import plot_candlestick_chart
 from streamlit_app.utils.market_data import fetch_market_data, process_market_data
+
+# Configuración de la conexión a la base de datos MySQL
+db_user = 'root'
+db_password = '21blackjack'
+db_host = 'localhost'
+db_database = 'sql1'
+table_name = 'prediction_results'
 
 def main():
     st.title("Análisis de Velas y Detección de Rebotes")
@@ -23,9 +30,14 @@ def main():
         st.write(market_data)
 
         with st.spinner("Procesando datos con el agente de detección..."):
-            detected = process_market_data(market_data)
+            detection_agent = DetectionAgent(db_user, db_password, db_host, db_database, table_name)
+            detected = detection_agent.detect(market_data)
             st.subheader("Velas detectadas")
             st.write(detected)
+
+        # Asegúrate de que los datos sean del tipo correcto
+        market_data = market_data.apply(pd.to_numeric, errors='coerce')
+        detected = detected.apply(pd.to_numeric, errors='coerce')
 
         st.subheader("Gráfico de velas")
         fig = plot_candlestick_chart(market_data, detected)
