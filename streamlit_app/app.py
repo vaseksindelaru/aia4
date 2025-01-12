@@ -9,7 +9,7 @@ db_user = 'root'
 db_password = '21blackjack'
 db_host = 'localhost'
 db_database = 'sql1'
-table_name = 'prediction_results'
+table_name = 'app_selections'
 
 def main():
     st.title("Análisis de Velas y Detección de Rebotes")
