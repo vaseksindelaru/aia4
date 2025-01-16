@@ -1,6 +1,6 @@
 import pandas as pd
 from streamlit_app.db.database import Database
-from sklearn.metrics import mean_squared_error
+from scipy.stats import pearsonr
 
 class AdjustAgent:
     def __init__(self, db_user, db_password, db_host, db_database):
@@ -10,7 +10,7 @@ class AdjustAgent:
         """
         Optimiza los parámetros de detección para que app_selection sea más similar a user_selection.
         """
-        best_similarity_score = float('inf')
+        best_similarity_score = -1  # Pearson correlation ranges from -1 to 1
         best_params = None
 
         for volume_sma_window in range(3, 10):
@@ -19,17 +19,26 @@ class AdjustAgent:
                 
                 # Asegúrate de que user_selection y detected tengan la misma longitud
                 common_index = user_selection.index.intersection(detected.index)
-                user_selection_aligned = user_selection.loc[common_index]
-                detected_aligned = detected.loc[common_index]
+                user_selection_aligned = user_selection.loc[common_index].apply(pd.to_numeric, errors='coerce')
+                detected_aligned = detected.loc[common_index].apply(pd.to_numeric, errors='coerce')
 
-                # Calcular el error cuadrático medio (MSE) como métrica de similitud
-                similarity_score = mean_squared_error(user_selection_aligned, detected_aligned)
-                
-                if similarity_score < best_similarity_score:
-                    best_similarity_score = similarity_score
-                    best_params = (volume_sma_window, height_sma_window)
+                # Verificar si hay datos comunes antes de calcular el coeficiente de correlación de Pearson
+                if not user_selection_aligned.empty and not detected_aligned.empty:
+                    # Asegúrate de que los datos sean del tipo numérico adecuado
+                    user_selection_values = user_selection_aligned.values.flatten().astype(float)
+                    detected_values = detected_aligned.values.flatten().astype(float)
 
-                self.db.save_adjustment_result('volume_sma_window', volume_sma_window, len(detected), len(user_selection), similarity_score)
-                self.db.save_adjustment_result('height_sma_window', height_sma_window, len(detected), len(user_selection), similarity_score)
+                    # Calcular el coeficiente de correlación de Pearson como métrica de similitud
+                    correlation, _ = pearsonr(user_selection_values, detected_values)
+                    
+                    # Imprimir los parámetros y la puntuación de similitud para depuración
+                    print(f"volume_sma_window: {volume_sma_window}, height_sma_window: {height_sma_window}, correlation: {correlation}")
+
+                    if correlation > best_similarity_score:
+                        best_similarity_score = correlation
+                        best_params = (volume_sma_window, height_sma_window)
+
+                    self.db.save_adjustment_result('volume_sma_window', volume_sma_window, len(detected), len(user_selection), correlation)
+                    self.db.save_adjustment_result('height_sma_window', height_sma_window, len(detected), len(user_selection), correlation)
 
         return best_params, best_similarity_score

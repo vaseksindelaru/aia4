@@ -56,6 +56,7 @@ def main():
         selected_rows = st.session_state['detected'].loc[selected_indices]
 
         if st.button("Guardar selección"):
+            detection_agent.db.clear_user_selection()  # Limpiar la tabla antes de guardar
             detection_agent.save_user_selection(selected_rows)
             st.success("Selección guardada en la base de datos")
 
@@ -66,3 +67,4 @@ def main():
 
 if __name__ == "__main__":
    main()
+   

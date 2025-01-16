@@ -101,3 +101,11 @@ class Database:
         except Exception as e:
             logging.error(f"Error al guardar la selección del usuario en la base de datos: {e}")
             raise
+
+    def clear_user_selection(self):
+        """
+        Borra el contenido de la tabla user_selections.
+        """
+        clear_table_query = "TRUNCATE TABLE user_selections;"
+        with self.engine.connect() as connection:
+            connection.execute(text(clear_table_query))
