@@ -6,13 +6,13 @@ class DetectionAgent:
         self.db = Database(db_user, db_password, db_host, db_database, table_name)
         self.db.create_user_selection_table()
 
-    def detect(self, df):
+    def detect(self, df, volume_sma_window=5, height_sma_window=5):
         """
         Filtra las velas con volumen mayor al promedio y tamaño menor al promedio.
         """
         df['Total_Height'] = df['high'] - df['low']
-        df['Volume_SMA'] = df['volume'].rolling(window=5).mean()
-        df['Total_Height_SMA'] = df['Total_Height'].rolling(window=5).mean()
+        df['Volume_SMA'] = df['volume'].rolling(window=volume_sma_window).mean()
+        df['Total_Height_SMA'] = df['Total_Height'].rolling(window=height_sma_window).mean()
 
         df['High_Volume'] = df['volume'] > df['Volume_SMA']
         df['Small_Body'] = df['Total_Height'] < df['Total_Height_SMA']

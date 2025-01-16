@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from agents.detection_agent import DetectionAgent
+from agents.adjust_agent import AdjustAgent
 from streamlit_app.components.charts import plot_candlestick_chart
 from streamlit_app.utils.market_data import fetch_market_data, process_market_data
 
@@ -20,6 +21,7 @@ def main():
     limit = st.slider("Cantidad de velas:", 10, 100, 50)
 
     detection_agent = DetectionAgent(db_user, db_password, db_host, db_database, table_name)
+    adjust_agent = AdjustAgent(db_user, db_password, db_host, db_database)
 
     if st.button("Obtener datos"):
         with st.spinner("Obteniendo datos del mercado..."):
@@ -56,6 +58,11 @@ def main():
         if st.button("Guardar selección"):
             detection_agent.save_user_selection(selected_rows)
             st.success("Selección guardada en la base de datos")
+
+            # Optimizar parámetros automáticamente después de guardar la selección
+            best_params, best_similarity_score = adjust_agent.optimize_parameters(detection_agent, st.session_state['market_data'], selected_rows)
+            st.write(f"Mejores parámetros: {best_params}")
+            st.write(f"Mejor puntuación de similitud: {best_similarity_score}")
 
 if __name__ == "__main__":
    main()
