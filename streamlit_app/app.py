@@ -3,7 +3,7 @@ import pandas as pd
 from agents.detection_agent import DetectionAgent
 from agents.adjust_agent import AdjustAgent
 from streamlit_app.components.charts import plot_candlestick_chart
-from streamlit_app.utils.market_data import fetch_market_data, process_market_data
+from utils.market_data import fetch_market_data, process_market_data
 
 # Configuración de la conexión a la base de datos MySQL
 db_user = 'root'
@@ -47,7 +47,7 @@ def main():
         st.session_state['detected'] = st.session_state['detected'].apply(pd.to_numeric, errors='coerce')
 
         st.subheader("Gráfico de velas")
-        fig = plot_candlestick_chart(st.session_state['market_data'], st.session_state['detected'])
+        fig = plot_candlestick_chart(st.session_state['market_data'], st.session_state['detected'], detection_agent)
         st.pyplot(fig)
 
     if 'detected' in st.session_state:
@@ -67,4 +67,3 @@ def main():
 
 if __name__ == "__main__":
    main()
-   
