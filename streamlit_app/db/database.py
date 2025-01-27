@@ -71,6 +71,18 @@ class Database:
         with self.engine.connect() as connection:
             connection.execute(text(create_table_query))
 
+    def fetch_table_data(self, table_name):
+        """
+        Fetch data from a specified table in the database.
+        """
+        query = f"SELECT * FROM {table_name}"
+        try:
+            df = pd.read_sql(query, self.engine)
+            return df
+        except Exception as e:
+            logging.error(f"Error al obtener datos de la tabla {table_name}: {e}")
+            return pd.DataFrame()
+
     def save_to_db(self, df):
         """
         Guarda el DataFrame en la base de datos.
@@ -92,12 +104,17 @@ class Database:
         with self.engine.connect() as connection:
             connection.execute(text(insert_query))
 
-    def save_user_selection(self, df):
+    def save_user_selection(self, df, table_name='user_selections'):
         """
         Guarda la selección del usuario en la base de datos.
         """
         try:
-            df.to_sql('user_selections', self.engine, if_exists='append', index=False)
+            # Clear the table before saving new data
+            with self.engine.connect() as connection:
+                connection.execute(text(f"TRUNCATE TABLE {table_name}"))
+
+            # Save the new data
+            df.to_sql(table_name, self.engine, if_exists='append', index=False)
         except Exception as e:
             logging.error(f"Error al guardar la selección del usuario en la base de datos: {e}")
             raise

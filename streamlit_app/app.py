@@ -3,6 +3,7 @@ import pandas as pd
 from agents.detection_agent import DetectionAgent
 from agents.adjust_agent import AdjustAgent
 from streamlit_app.components.charts import plot_candlestick_chart
+from streamlit_app.db.database import Database  # Correct import
 from utils.market_data import fetch_market_data, process_market_data
 
 # Configuración de la conexión a la base de datos MySQL
@@ -11,6 +12,8 @@ db_password = '21blackjack'
 db_host = 'localhost'
 db_database = 'sql1'
 table_name = 'prediction_results'
+example_table_name = 'prediction_example'
+user_selection_table_name = 'user_selections'
 
 def main():
     st.title("Análisis de Velas y Detección de Rebotes")
@@ -22,6 +25,7 @@ def main():
 
     detection_agent = DetectionAgent(db_user, db_password, db_host, db_database, table_name)
     adjust_agent = AdjustAgent(db_user, db_password, db_host, db_database)
+    database = Database(db_user, db_password, db_host, db_database, table_name)
 
     if st.button("Obtener datos"):
         with st.spinner("Obteniendo datos del mercado..."):
@@ -50,18 +54,47 @@ def main():
         fig = plot_candlestick_chart(st.session_state['market_data'], st.session_state['detected'], detection_agent)
         st.pyplot(fig)
 
-    if 'detected' in st.session_state:
-        st.subheader("Selecciona las velas detectadas que deseas guardar")
-        selected_indices = st.multiselect("Selecciona las filas", st.session_state['detected'].index)
-        selected_rows = st.session_state['detected'].loc[selected_indices]
+    # Fetch data from prediction_example table
+    example_data = database.fetch_table_data(example_table_name)
+    if example_data.empty:
+        st.error("No se pudieron obtener datos de ejemplo. Verifique la tabla de la base de datos.")
+        return
+    st.session_state['example_data'] = example_data
+
+    st.subheader("Datos de la tabla de predicción")
+    st.write(st.session_state['example_data'])
+
+    if 'detected' in st.session_state and 'example_data' in st.session_state:
+        st.subheader("Selecciona las filas de ejemplo")
+        selected_example_indices = st.multiselect(
+            "Selecciona las filas de ejemplo",
+            st.session_state['example_data'].index,
+            default=st.session_state.get('selected_example_indices', [])
+        )
+        selected_example_rows = st.session_state['example_data'].loc[selected_example_indices]
+        st.session_state['selected_example_indices'] = selected_example_indices
+
+        st.subheader("Selecciona las filas detectadas")
+        selected_detected_indices = st.multiselect(
+            "Selecciona las filas detectadas",
+            st.session_state['detected'].index,
+            default=st.session_state.get('selected_detected_indices', [])
+        )
+        selected_detected_rows = st.session_state['detected'].loc[selected_detected_indices]
+        st.session_state['selected_detected_indices'] = selected_detected_indices
+
+        st.subheader("Gráfico de velas")
+        fig = plot_candlestick_chart(st.session_state['market_data'], st.session_state['detected'], detection_agent)
+        st.pyplot(fig)
 
         if st.button("Guardar selección"):
-            detection_agent.db.clear_user_selection()  # Limpiar la tabla antes de guardar
-            detection_agent.save_user_selection(selected_rows)
+            detection_agent.db.clear_user_selection(user_selection_table_name)  # Limpiar la tabla antes de guardar
+            detection_agent.save_user_selection(selected_example_rows, user_selection_table_name)
+            detection_agent.save_user_selection(selected_detected_rows, user_selection_table_name)
             st.success("Selección guardada en la base de datos")
 
             # Optimizar parámetros automáticamente después de guardar la selección
-            best_params, best_similarity_score = adjust_agent.optimize_parameters(detection_agent, st.session_state['market_data'], selected_rows)
+            best_params, best_similarity_score = adjust_agent.optimize_parameters(detection_agent, st.session_state['market_data'], selected_detected_rows)
             st.write(f"Mejores parámetros: {best_params}")
             st.write(f"Mejor puntuación de similitud: {best_similarity_score}")
 
