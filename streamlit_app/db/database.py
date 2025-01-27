@@ -8,6 +8,8 @@ class Database:
         self.table_name = table_name
         self.create_table_if_not_exists()
         self.create_adjustment_results_table()
+        self.create_user_selection_table()
+        self.create_prediction_user_table()
 
     def create_table_if_not_exists(self):
         """
@@ -71,6 +73,28 @@ class Database:
         with self.engine.connect() as connection:
             connection.execute(text(create_table_query))
 
+    def create_prediction_user_table(self):
+        """
+        Crea la tabla prediction_user si no existe.
+        """
+        create_table_query = """
+        CREATE TABLE IF NOT EXISTS prediction_user (
+            timestamp DATETIME,
+            open FLOAT,
+            high FLOAT,
+            low FLOAT,
+            close FLOAT,
+            volume FLOAT,
+            Total_Height FLOAT,
+            Volume_SMA FLOAT,
+            Total_Height_SMA FLOAT,
+            High_Volume BOOLEAN,
+            Small_Body BOOLEAN
+        );
+        """
+        with self.engine.connect() as connection:
+            connection.execute(text(create_table_query))
+
     def fetch_table_data(self, table_name):
         """
         Fetch data from a specified table in the database.
@@ -117,6 +141,16 @@ class Database:
             df.to_sql(table_name, self.engine, if_exists='append', index=False)
         except Exception as e:
             logging.error(f"Error al guardar la selección del usuario en la base de datos: {e}")
+            raise
+
+    def save_prediction_user(self, df):
+        """
+        Guarda la selección del usuario en la tabla prediction_user.
+        """
+        try:
+            df.to_sql('prediction_user', self.engine, if_exists='append', index=False)
+        except Exception as e:
+            logging.error(f"Error al guardar la selección del usuario en la tabla prediction_user: {e}")
             raise
 
     def clear_user_selection(self):

@@ -4,9 +4,8 @@ from agents.detection_agent import DetectionAgent
 from agents.adjust_agent import AdjustAgent
 from streamlit_app.components.charts import plot_candlestick_chart
 from streamlit_app.db.database import Database  # Correct import
-from utils.market_data import fetch_market_data, process_market_data
+from utils.market_data import fetch_market_data
 
-# Configuración de la conexión a la base de datos MySQL
 db_user = 'root'
 db_password = '21blackjack'
 db_host = 'localhost'
@@ -26,6 +25,12 @@ def main():
     detection_agent = DetectionAgent(db_user, db_password, db_host, db_database, table_name)
     adjust_agent = AdjustAgent(db_user, db_password, db_host, db_database)
     database = Database(db_user, db_password, db_host, db_database, table_name)
+
+    # Initialize session state keys if they do not exist
+    if 'market_data' not in st.session_state:
+        st.session_state['market_data'] = None
+    if 'detected' not in st.session_state:
+        st.session_state['detected'] = None
 
     if st.button("Obtener datos"):
         with st.spinner("Obteniendo datos del mercado..."):
@@ -64,7 +69,7 @@ def main():
     st.subheader("Datos de la tabla de predicción")
     st.write(st.session_state['example_data'])
 
-    if 'detected' in st.session_state and 'example_data' in st.session_state:
+    if 'example_data' in st.session_state:
         st.subheader("Selecciona las filas de ejemplo")
         selected_example_indices = st.multiselect(
             "Selecciona las filas de ejemplo",
@@ -74,27 +79,17 @@ def main():
         selected_example_rows = st.session_state['example_data'].loc[selected_example_indices]
         st.session_state['selected_example_indices'] = selected_example_indices
 
-        st.subheader("Selecciona las filas detectadas")
-        selected_detected_indices = st.multiselect(
-            "Selecciona las filas detectadas",
-            st.session_state['detected'].index,
-            default=st.session_state.get('selected_detected_indices', [])
-        )
-        selected_detected_rows = st.session_state['detected'].loc[selected_detected_indices]
-        st.session_state['selected_detected_indices'] = selected_detected_indices
-
         st.subheader("Gráfico de velas")
         fig = plot_candlestick_chart(st.session_state['market_data'], st.session_state['detected'], detection_agent)
         st.pyplot(fig)
 
         if st.button("Guardar selección"):
-            detection_agent.db.clear_user_selection(user_selection_table_name)  # Limpiar la tabla antes de guardar
-            detection_agent.save_user_selection(selected_example_rows, user_selection_table_name)
-            detection_agent.save_user_selection(selected_detected_rows, user_selection_table_name)
-            st.success("Selección guardada en la base de datos")
+            detection_agent.save_user_selection(selected_example_rows)
+            st.session_state['selected_example_indices'] = []
+            st.success("Selección guardada en la base de datos (prediction_user)")
 
             # Optimizar parámetros automáticamente después de guardar la selección
-            best_params, best_similarity_score = adjust_agent.optimize_parameters(detection_agent, st.session_state['market_data'], selected_detected_rows)
+            best_params, best_similarity_score = adjust_agent.optimize_parameters(detection_agent, st.session_state['market_data'], selected_example_rows)
             st.write(f"Mejores parámetros: {best_params}")
             st.write(f"Mejor puntuación de similitud: {best_similarity_score}")
 

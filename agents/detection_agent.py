@@ -7,6 +7,7 @@ class DetectionAgent:
     def __init__(self, db_user, db_password, db_host, db_database, table_name):
         self.db = Database(db_user, db_password, db_host, db_database, table_name)
         self.db.create_user_selection_table()
+        self.db.create_prediction_user_table()
 
     def detect(self, df, volume_sma_window=5, height_sma_window=5):
         """
@@ -55,7 +56,7 @@ class DetectionAgent:
         Calcula el promedio de velas intermedias.
         """
         if index_start + 1 < index_end:
-            velas_intermedias = df.iloc[index_start + 1:index_end]
+            velas_intermedias = df.iloc(index_start + 1:index_end)
             return velas_intermedias['close'].mean()
         return None
 
@@ -106,4 +107,4 @@ class DetectionAgent:
         """
         Guarda la selección del usuario en la base de datos.
         """
-        self.db.save_user_selection(df)
+        self.db.save_prediction_user(df)

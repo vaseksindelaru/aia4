@@ -1,5 +1,5 @@
 # main.py
-from utils.market_data import fetch_market_data, process_market_data
+from streamlit_app.utils.market_data import fetch_market_data, process_market_data
 import logging
 
 # Configuración
