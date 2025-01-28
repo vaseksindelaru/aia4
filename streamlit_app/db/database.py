@@ -10,6 +10,7 @@ class Database:
         self.create_adjustment_results_table()
         self.create_user_selection_table()
         self.create_prediction_user_table()
+        self.create_prediction_example_table()
 
     def create_table_if_not_exists(self):
         """
@@ -90,6 +91,24 @@ class Database:
             Total_Height_SMA FLOAT,
             High_Volume BOOLEAN,
             Small_Body BOOLEAN
+        );
+        """
+        with self.engine.connect() as connection:
+            connection.execute(text(create_table_query))
+
+    def create_prediction_example_table(self):
+        """
+        Crea la tabla prediction_example si no existe.
+        """
+        create_table_query = """
+        CREATE TABLE IF NOT EXISTS prediction_example (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            inicial_price FLOAT,
+            rebote_close FLOAT,
+            promedio_velas_siguientes FLOAT,
+            signo VARCHAR(2),
+            exito_rebote VARCHAR(2),
+            UNIQUE INDEX idx_unique_prediction (inicial_price, rebote_close, promedio_velas_siguientes)
         );
         """
         with self.engine.connect() as connection:

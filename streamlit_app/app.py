@@ -5,6 +5,7 @@ from agents.adjust_agent import AdjustAgent
 from streamlit_app.components.charts import plot_candlestick_chart
 from streamlit_app.db.database import Database  # Correct import
 from utils.market_data import fetch_market_data
+from sqlalchemy import text
 
 db_user = 'root'
 db_password = '21blackjack'
@@ -31,6 +32,8 @@ def main():
         st.session_state['market_data'] = None
     if 'detected' not in st.session_state:
         st.session_state['detected'] = None
+    if 'selected_example_indices' not in st.session_state:
+        st.session_state['selected_example_indices'] = []
 
     if st.button("Obtener datos"):
         with st.spinner("Obteniendo datos del mercado..."):
@@ -45,6 +48,10 @@ def main():
         st.write(st.session_state['market_data'])
 
         with st.spinner("Procesando datos con el agente de detección..."):
+            # Clear the prediction_example table before processing new data
+            with database.engine.connect() as connection:
+                connection.execute(text("TRUNCATE TABLE prediction_example"))
+
             detected = detection_agent.detect(st.session_state['market_data'])
             st.session_state['detected'] = detected
 
@@ -59,22 +66,21 @@ def main():
         fig = plot_candlestick_chart(st.session_state['market_data'], st.session_state['detected'], detection_agent)
         st.pyplot(fig)
 
-    # Fetch data from prediction_example table
-    example_data = database.fetch_table_data(example_table_name)
-    if example_data.empty:
-        st.error("No se pudieron obtener datos de ejemplo. Verifique la tabla de la base de datos.")
-        return
-    st.session_state['example_data'] = example_data
-
-    st.subheader("Datos de la tabla de predicción")
-    st.write(st.session_state['example_data'])
+        # Fetch and display the current data from prediction_example table
+        example_data = database.fetch_table_data(example_table_name)
+        if example_data.empty:
+            st.error("No se pudieron obtener datos de ejemplo. Verifique la tabla de la base de datos.")
+        else:
+            st.session_state['example_data'] = example_data
+            st.subheader("Datos de la tabla de predicción")
+            st.write(st.session_state['example_data'])
 
     if 'example_data' in st.session_state:
         st.subheader("Selecciona las filas de ejemplo")
         selected_example_indices = st.multiselect(
             "Selecciona las filas de ejemplo",
             st.session_state['example_data'].index,
-            default=st.session_state.get('selected_example_indices', [])
+            default=st.session_state['selected_example_indices']
         )
         selected_example_rows = st.session_state['example_data'].loc[selected_example_indices]
         st.session_state['selected_example_indices'] = selected_example_indices
@@ -84,6 +90,7 @@ def main():
         st.pyplot(fig)
 
         if st.button("Guardar selección"):
+            # Save the selected example rows
             detection_agent.save_user_selection(selected_example_rows)
             st.session_state['selected_example_indices'] = []
             st.success("Selección guardada en la base de datos (prediction_user)")
