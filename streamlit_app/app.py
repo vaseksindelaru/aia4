@@ -77,13 +77,28 @@ def main():
 
     if 'example_data' in st.session_state:
         st.subheader("Selecciona las filas de ejemplo")
+        
+        # Initialize selected_example_indices in session state if not present
+        if 'selected_example_indices' not in st.session_state:
+            st.session_state['selected_example_indices'] = []
+
+        # Use a callback to update the session state when the selection changes
+        def update_selection():
+            st.session_state['selected_example_indices'] = st.session_state['selected_indices']
+
+        # Create a multiselect widget with a callback
         selected_example_indices = st.multiselect(
             "Selecciona las filas de ejemplo",
             st.session_state['example_data'].index,
-            default=st.session_state['selected_example_indices']
+            default=st.session_state['selected_example_indices'],
+            key='selected_indices',
+            on_change=update_selection
         )
-        selected_example_rows = st.session_state['example_data'].loc[selected_example_indices]
-        st.session_state['selected_example_indices'] = selected_example_indices
+
+        selected_example_rows = st.session_state['example_data'].loc[st.session_state['selected_example_indices']]
+
+        st.subheader("Filas seleccionadas")
+        st.write(selected_example_rows)
 
         st.subheader("Gráfico de velas")
         fig = plot_candlestick_chart(st.session_state['market_data'], st.session_state['detected'], detection_agent)
