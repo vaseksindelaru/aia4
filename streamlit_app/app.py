@@ -105,10 +105,15 @@ def main():
         st.pyplot(fig)
 
         if st.button("Guardar selección"):
-            # Save the selected example rows
-            detection_agent.save_user_selection(selected_example_rows)
+            # Save the selected example rows to a new table
+            try:
+                selected_example_rows.to_sql('selected_examples', database.engine, if_exists='append', index=False)
+                st.success("Selección guardada en la base de datos (selected_examples)")
+            except Exception as e:
+                st.error(f"Error al guardar la selección en la base de datos: {e}")
+
+            # Clear the selected indices after saving
             st.session_state['selected_example_indices'] = []
-            st.success("Selección guardada en la base de datos (prediction_user)")
 
             # Optimizar parámetros automáticamente después de guardar la selección
             best_params, best_similarity_score = adjust_agent.optimize_parameters(detection_agent, st.session_state['market_data'], selected_example_rows)
