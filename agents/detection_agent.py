@@ -1,13 +1,12 @@
 import pandas as pd
-from sqlalchemy import exc, text
+from streamlit_app.db.database import Database
+from sqlalchemy.sql import text
+from sqlalchemy import exc
 
 class DetectionAgent:
-    def __init__(self, db):
-        self.db = db
-
-    def calcular_exito_rebote(self, promedio_siguiente, rebote_close, inicial_price, signo_intermedias):
-        # Implement your logic to calculate exito_rebote
-        return "+" if promedio_siguiente > rebote_close else "-"
+    def __init__(self, db_user, db_password, db_host, db_database, table_name):
+        self.db = Database(db_user, db_password, db_host, db_database, table_name)
+        self.db.create_user_selection_table()
 
     def detect(self, df, volume_sma_window=5, height_sma_window=5):
         """
@@ -42,53 +41,55 @@ class DetectionAgent:
                     return i
         return None
 
-    def guardar_en_base_datos(self, df, index_pos, rebote_index, promedio_siguiente, signo_intermedias, candle_id):
+    def promedio_dos_velas_siguientes(self, df, index, siguientes_window=2):
         """
-        Guarda los datos en la base de datos reescribiendo los existentes.
+        Calcula el promedio de las dos velas siguientes.
+        """
+        if index + siguientes_window < len(df):
+            promedio_siguiente = df['close'].iloc[index + 1:index + siguientes_window + 1].mean()
+            return promedio_siguiente
+        return None
+
+    def promedio_velas_intermedias(self, df, index_start, index_end):
+        """
+        Calcula el promedio de velas intermedias.
+        """
+        if index_start + 1 < index_end:
+            velas_intermedias = df.iloc[index_start + 1:index_end]
+            return velas_intermedias['close'].mean()
+        return None
+
+    def calcular_exito_rebote(self, promedio_siguiente, rebote_close, inicial_price, signo):
+        """
+        Calcula el éxito del rebote.
+        """
+        if (promedio_siguiente > rebote_close and rebote_close > inicial_price and signo == "-") or \
+           (promedio_siguiente < rebote_close and rebote_close < inicial_price and signo == "+"):
+            return "-"
+        elif (promedio_siguiente < rebote_close and signo == "-") or \
+             (promedio_siguiente > rebote_close and signo == "+"):
+            return "+"
+        elif (promedio_siguiente < rebote_close and rebote_close > promedio_siguiente and signo == "-") or \
+             (promedio_siguiente > rebote_close and rebote_close < promedio_siguiente and signo == "+"):
+            return "++"
+        return None
+
+    def guardar_en_base_datos(self, df, index_pos, rebote_index, promedio_siguiente, signo_intermedias):
+        """
+        Guarda los datos en la base de datos.
         """
         try:
             with self.db.engine.connect() as connection:
-                # Clear the table before inserting new data
-                connection.execute(text("TRUNCATE TABLE prediction_example"))
-
-                # Ensure indices are valid
-                if index_pos < 0 or index_pos >= len(df) or rebote_index < 0 or rebote_index >= len(df):
-                    print("Invalid index positions for data extraction.")
-                    return
-
-                # Extract data
                 rebote_close = df['close'].iloc[rebote_index]
                 inicial_price = df['close'].iloc[index_pos]
                 exito_rebote = self.calcular_exito_rebote(promedio_siguiente, rebote_close, inicial_price, signo_intermedias)
 
-                # Get additional data
-                timestamp = df.index[index_pos]
-                open_price = df['open'].iloc[index_pos]
-                high_price = df['high'].iloc[index_pos]
-                low_price = df['low'].iloc[index_pos]
-                volume = df['volume'].iloc[index_pos]
-
-                # Debugging: Print extracted values
-                print(f"Extracted Data - Timestamp: {timestamp}, Open: {open_price}, High: {high_price}, Low: {low_price}, Close: {rebote_close}, Volume: {volume}")
-
-                # Ensure no None values are inserted
-                if pd.isnull([timestamp, open_price, high_price, low_price, rebote_close, inicial_price, volume]).any():
-                    print("Detected None or NaN values in the data.")
-                    return
-
                 query = text("""
-                INSERT INTO prediction_example (candle_id, timestamp, open, high, low, close, volume, inicial_price, rebote_close, promedio_velas_siguientes, signo, exito_rebote)
-                VALUES (:candle_id, :timestamp, :open, :high, :low, :close, :volume, :inicial_price, :rebote_close, :promedio_velas_siguientes, :signo, :exito_rebote)
+                INSERT INTO prediction_example (inicial_price, rebote_close, promedio_velas_siguientes, signo, exito_rebote)
+                VALUES (:inicial_price, :rebote_close, :promedio_velas_siguientes, :signo, :exito_rebote)
                 """)
 
                 data = {
-                    "candle_id": candle_id,
-                    "timestamp": timestamp,
-                    "open": open_price,
-                    "high": high_price,
-                    "low": low_price,
-                    "close": df['close'].iloc[index_pos],
-                    "volume": volume,
                     "inicial_price": inicial_price,
                     "rebote_close": rebote_close,
                     "promedio_velas_siguientes": promedio_siguiente,
@@ -100,3 +101,9 @@ class DetectionAgent:
                 print("Inserción exitosa en la base de datos con exito_rebote.")
         except exc.SQLAlchemyError as e:
             print(f"Error al guardar en la base de datos: {e}")
+
+    def save_user_selection(self, df):
+        """
+        Guarda la selección del usuario en la base de datos.
+        """
+        self.db.save_user_selection(df)
