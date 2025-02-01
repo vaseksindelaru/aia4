@@ -14,35 +14,62 @@ def get_exchange():
 
 def fetch_market_data(symbol, timeframe, limit=1000):
     """
-    Obtiene datos OHLCV del exchange usando ccxt.
+    Obtiene datos OHLCV y calcula VWAP
     """
     try:
-        exchange = get_exchange()
-        # Validar timeframe
-        valid_timeframes = ['1m', '5m', '15m', '1h', '1d']
-        if timeframe not in valid_timeframes:
-            timeframe = '5m'  # default to 5m if invalid
+        exchange = ccxt.binance({
+            'enableRateLimit': True,
+            'options': {
+                'defaultType': 'spot',
+                'adjustForTimeDifference': True,
+            }
+        })
         
-        print(f"Fetching {limit} candles with {timeframe} timeframe")
-        ohlcv = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
+        # Calcular número de velas necesarias
+        candles_per_day = min(1000, int((24 * 60) / int(timeframe[:-1])))
+        print(f"Fetching {candles_per_day} candles for VWAP calculation")
+        
+        # Usar el método estándar de CCXT
+        ohlcv = exchange.fetch_ohlcv(
+            symbol,
+            timeframe=timeframe,
+            limit=candles_per_day
+        )
+        
+        if not ohlcv:
+            raise Exception("No data received from exchange")
+            
+        print(f"Received {len(ohlcv)} candles from exchange")
+        
+        # Crear DataFrame
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        
+        # Convertir timestamp
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', utc=True)
         df.set_index('timestamp', inplace=True)
+        
+        # Calcular VWAP desde el inicio del día
+        df['Typical_Price'] = (df['high'] + df['low'] + df['close']) / 3
+        df['TPV'] = df['Typical_Price'] * df['volume']
+        df['VWAP'] = df['TPV'].cumsum() / df['volume'].cumsum()
+        
+        # Mantener solo las últimas 'limit' velas para la visualización
+        df = df.tail(limit)
+        
+        # Mantener solo las columnas necesarias
+        df = df[['open', 'high', 'low', 'close', 'volume', 'VWAP']]
 
-        # Calculate VWAP
-        q = df['volume']
-        p = (df['high'] + df['low'] + df['close']) / 3
-        df['VWAP'] = (p * q).cumsum() / q.cumsum()
-
-        df = df.sort_index()
         print(f"Timeframe: {timeframe}")
         print("Timestamps range:", df.index.min(), "to", df.index.max())
+        print("\nPrimeras 5 velas del período mostrado:")
         print(df[['close', 'VWAP']].head())
+        print("\nÚltimas 5 velas:")
+        print(df[['close', 'VWAP']].tail())
 
         return df
     except Exception as e:
-        logging.error(f"Error al obtener datos de mercado: {e}")
-        return pd.DataFrame()
+        logging.error(f"Error al obtener datos de mercado: {str(e)}")
+        raise  # Propagar el error para mejor diagnóstico
 
 def process_market_data(df):
     """
