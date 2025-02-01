@@ -15,7 +15,7 @@ def get_exchange():
 
 def fetch_market_data(symbol, timeframe, limit=1000):
     """
-    Obtiene datos OHLCV y calcula VWAP diario desde la 1 AM con bandas de desviación
+    Obtiene datos OHLCV y calcula VWAP diario desde la 1 AM con bandas de volatilidad
     """
     try:
         exchange = ccxt.binance({
@@ -65,6 +65,10 @@ def fetch_market_data(symbol, timeframe, limit=1000):
         df['VWAP_upper'] = np.nan
         df['VWAP_lower'] = np.nan
         
+        # Calcular volatilidad
+        df['price_change'] = df['close'].pct_change()
+        df['volatility'] = df['price_change'].rolling(window=20).std() * df['close']
+        
         # Calcular VWAP y bandas por día de trading
         for day in df['trading_day'].unique():
             mask = df['trading_day'] == day
@@ -74,17 +78,14 @@ def fetch_market_data(symbol, timeframe, limit=1000):
             df.loc[mask, 'cum_vol'] = df.loc[mask, 'volume'].cumsum()
             df.loc[mask, 'VWAP'] = df.loc[mask, 'cum_TPV'] / df.loc[mask, 'cum_vol']
             
-            # Calcular desviación estándar
-            df.loc[mask, 'squared_diff'] = (df.loc[mask, 'typical_price'] - df.loc[mask, 'VWAP']) ** 2
-            df.loc[mask, 'std_dev'] = np.sqrt(df.loc[mask, 'squared_diff'].cumsum() / df.loc[mask, 'cum_vol'])
-            
-            # Calcular bandas
-            df.loc[mask, 'VWAP_upper'] = df.loc[mask, 'VWAP'] + (1.28 * df.loc[mask, 'std_dev'])
-            df.loc[mask, 'VWAP_lower'] = df.loc[mask, 'VWAP'] - (1.28 * df.loc[mask, 'std_dev'])
+            # Calcular bandas usando volatilidad
+            multiplier = 3.0  # Aumentamos el multiplicador para bandas más amplias
+            df.loc[mask, 'VWAP_upper'] = df.loc[mask, 'VWAP'] + (multiplier * df.loc[mask, 'volatility'])
+            df.loc[mask, 'VWAP_lower'] = df.loc[mask, 'VWAP'] - (multiplier * df.loc[mask, 'volatility'])
         
         # Limpiar columnas temporales
-        columns_to_drop = ['trading_day', 'typical_price', 'TPV', 'cum_TPV', 'cum_vol', 
-                          'squared_diff', 'std_dev']
+        columns_to_drop = ['trading_day', 'typical_price', 'TPV', 'cum_TPV', 'cum_vol',
+                          'price_change', 'volatility']
         df = df.drop(columns=columns_to_drop)
         
         # Mantener solo las últimas velas solicitadas
