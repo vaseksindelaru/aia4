@@ -26,6 +26,11 @@ def main():
     detection_agent = DetectionAgent(db_user, db_password, db_host, db_database, table_name)
     adjust_agent = AdjustAgent(db_user, db_password, db_host, db_database)
     database = Database(db_user, db_password, db_host, db_database, table_name)
+    
+    # Recrear las tablas al inicio
+    if 'tables_recreated' not in st.session_state:
+        database.recreate_tables()
+        st.session_state['tables_recreated'] = True
 
     # Initialize session state keys if they do not exist
     if 'market_data' not in st.session_state:

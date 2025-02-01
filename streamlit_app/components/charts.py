@@ -6,17 +6,20 @@ from streamlit_app.utils.market_data import get_exchange  # or however you've ex
 exchange = get_exchange()
 
 def plot_candlestick_chart(market_data, detected, detection_agent):
-    # Add VWAP to the addplot
+    # Add VWAP and bands to the addplot
     vwap = mpf.make_addplot(market_data['VWAP'], color='blue', width=1, label='VWAP')
+    vwap_upper = mpf.make_addplot(market_data['VWAP_upper'], color='gray', width=1, alpha=0.5, linestyle='--')
+    vwap_lower = mpf.make_addplot(market_data['VWAP_lower'], color='gray', width=1, alpha=0.5, linestyle='--')
     
     mc = mpf.make_marketcolors(up='g', down='r', volume='in')
     s = mpf.make_mpf_style(marketcolors=mc)
     
-    # Add VWAP to the plot
-    fig, axlist = mpf.plot(market_data, type='candle', 
+    # Add VWAP and bands to the plot
+    fig, axlist = mpf.plot(market_data, 
+                          type='candle',
                           volume=True, 
-                          style=s, 
-                          addplot=vwap,  # Add VWAP here
+                          style=s,
+                          addplot=[vwap, vwap_upper, vwap_lower],
                           returnfig=True)
 
     ax = axlist[0]

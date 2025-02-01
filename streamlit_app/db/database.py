@@ -24,6 +24,9 @@ class Database:
             low FLOAT,
             close FLOAT,
             volume FLOAT,
+            VWAP FLOAT,
+            VWAP_upper FLOAT,
+            VWAP_lower FLOAT,
             Total_Height FLOAT,
             Volume_SMA FLOAT,
             Total_Height_SMA FLOAT,
@@ -64,6 +67,9 @@ class Database:
             low FLOAT,
             close FLOAT,
             volume FLOAT,
+            VWAP FLOAT,
+            VWAP_upper FLOAT,
+            VWAP_lower FLOAT,
             Total_Height FLOAT,
             Volume_SMA FLOAT,
             Total_Height_SMA FLOAT,
@@ -86,6 +92,9 @@ class Database:
             low FLOAT,
             close FLOAT,
             volume FLOAT,
+            VWAP FLOAT,
+            VWAP_upper FLOAT,
+            VWAP_lower FLOAT,
             Total_Height FLOAT,
             Volume_SMA FLOAT,
             Total_Height_SMA FLOAT,
@@ -179,3 +188,23 @@ class Database:
         clear_table_query = "TRUNCATE TABLE user_selections;"
         with self.engine.connect() as connection:
             connection.execute(text(clear_table_query))
+
+    def recreate_tables(self):
+        """
+        Elimina y vuelve a crear todas las tablas.
+        """
+        drop_queries = [
+            f"DROP TABLE IF EXISTS {self.table_name}",
+            "DROP TABLE IF EXISTS user_selections",
+            "DROP TABLE IF EXISTS prediction_user"
+        ]
+        
+        with self.engine.connect() as connection:
+            for query in drop_queries:
+                connection.execute(text(query))
+            connection.commit()
+        
+        # Recrear las tablas
+        self.create_table_if_not_exists()
+        self.create_user_selection_table()
+        self.create_prediction_user_table()
